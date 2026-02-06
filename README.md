@@ -1,63 +1,70 @@
 # Memory MCP Service
 
-情景+实体记忆 MCP 服务，为 Claude Code 提供持久化记忆能力。
+[English](README.md) | [中文](README_zh.md)
 
-## 特性
+A scenario + entity memory MCP service that provides persistent memory capabilities for Claude Code.
 
-- **情景记忆 (Episodes)**: 按任务/功能划分的对话场景
-- **实体记忆 (Entities)**: 结构化的知识单元（决策、概念、偏好等）
-- **双层存储**: 用户级（跨项目）+ 项目级（项目隔离）
-- **实时缓存**: 消息实时存储，防止丢失
-- **语义检索**: 基于向量的语义搜索
+## Features
 
-## 安装
+- **Episodes**: Dialogue scenes divided by task/function
+- **Entities**: Structured knowledge units (decisions, concepts, preferences, etc.)
+- **Dual-layer storage**: User-level (cross-project) + Project-level (project isolated)
+- **Real-time cache**: Messages are stored in real-time to prevent loss
+- **Semantic retrieval**: Vector-based semantic search
 
-### Windows 一键安装
-直接运行项目根目录的 `install.bat` 文件：
+## Installation
+
+### Windows One-click Installation
+
+Run the `install.bat` file in the project root directory:
 
 ```bash
-# 双击运行或命令行执行
+# Double-click to run or execute from command line
 install.bat
 ```
 
-### Mac/Linux 一键安装
-直接运行项目根目录的 `install.sh` 文件：
+### Mac/Linux One-click Installation
+
+Run the `install.sh` file in the project root directory:
 
 ```bash
-# 命令行执行
+# Execute from command line
 chmod +x install.sh
 ./install.sh
 ```
 
-### 手动安装
+### Manual Installation
 
 ```bash
 cd .claude/memory-mcp
 
-# 创建虚拟环境
+# Create virtual environment
 python -m venv venv310
 
-# 激活虚拟环境
+# Activate virtual environment
 # Windows:
 venv310\Scripts\activate
 # Mac/Linux:
 source venv310/bin/activate
 
-# 安装依赖
+# Install dependencies
 pip install -e .
 ```
 
-## 配置 Claude Code
+## Configure Claude Code
 
-### 1. MCP 服务配置
+### 1. MCP Service Configuration
 
-#### 方法 1：使用命令行添加（推荐）
+#### Method 1: Add using command line (recommended)
+
 ```bash
 claude mcp add memory-mcp -- python -m src.server
 ```
 
-#### 方法 2：手动配置 settings.json
-编辑 `~/.claude/settings.json`（全局配置）：
+#### Method 2: Manual configuration in settings.json
+
+Edit `~/.claude/settings.json` (global configuration):
+
 ```json
 {
   "mcpServers": {
@@ -127,84 +134,95 @@ claude mcp add memory-mcp -- python -m src.server
 }
 ```
 
-### 2. Hooks 功能说明
+### 2. Hooks Functionality
 
-项目提供 4 个自动化 hooks 实现完整的会话生命周期管理：
+The project provides 4 automated hooks to implement complete session lifecycle management:
 
-| Hook 名称          | 文件                     | 功能描述                                                                 |
-|-------------------|--------------------------|--------------------------------------------------------------------------|
-| SessionStart      | `session_start.py`       | 会话开始时自动创建情景，启动终端生命周期监控                             |
-| UserPromptSubmit  | `auto_save.py`           | 用户提交 prompt 时自动保存消息到记忆系统                                 |
-| Stop              | `save_response.py`       | 会话停止时保存助手回复到记忆系统                                         |
-| SessionEnd        | `session_end.py`         | 会话结束时发送关闭信号给监控进程，由监控进程负责关闭情景并生成摘要         |
+| Hook Name          | File                     | Function Description                                                                 |
+|-------------------|--------------------------|-------------------------------------------------------------------------------------|
+| SessionStart      | `session_start.py`       | Automatically creates a scenario when a session starts and begins monitoring the terminal lifecycle |
+| UserPromptSubmit  | `auto_save.py`           | Automatically saves user messages to the memory system when they submit a prompt    |
+| Stop              | `save_response.py`       | Saves assistant responses to the memory system when the session stops               |
+| SessionEnd        | `session_end.py`         | Sends a close signal to the monitoring process when the session ends, which is responsible for closing the scenario and generating a summary |
 
-### 3. 验证配置
+### 3. Verify Configuration
 
 ```bash
-# 检查 MCP 服务器状态
+# Check MCP server status
 claude mcp list
 
-# 预期输出
+# Expected output
 Checking MCP server health...
 playwright: npx @playwright/mcp@latest - ✓ Connected
 memory-mcp: /path/to/your/venv/bin/python -m src.server - ✓ Connected
 ```
 
-## 工具列表
+## Tools List
 
-### 消息缓存
-- `memory_cache_message`: 缓存消息
+### Message Cache
 
-### 情景管理
-- `memory_start_episode`: 开始新情景
-- `memory_close_episode`: 关闭情景
-- `memory_get_current_episode`: 获取当前情景
+- `memory_cache_message`: Cache messages
 
-### 实体管理
-- `memory_add_entity`: 添加实体
-- `memory_confirm_entity`: 确认候选实体
-- `memory_reject_candidate`: 拒绝候选
-- `memory_deprecate_entity`: 废弃实体
-- `memory_get_pending`: 获取待确认实体
+### Episode Management
 
-### 检索
-- `memory_recall`: 综合检索
-- `memory_search_by_type`: 按类型检索
-- `memory_get_episode_detail`: 获取情景详情
+- `memory_start_episode`: Start a new episode
+- `memory_close_episode`: Close an episode
+- `memory_get_current_episode`: Get current episode
 
-### 统计
-- `memory_stats`: 获取统计信息
+### Entity Management
 
-## 实体类型
+- `memory_add_entity`: Add entity
+- `memory_confirm_entity`: Confirm candidate entity
+- `memory_reject_candidate`: Reject candidate
+- `memory_deprecate_entity`: Deprecate entity
+- `memory_get_pending`: Get pending entities
 
-### 用户级（跨项目共享）
-- `Preference`: 用户偏好
-- `Concept`: 通用概念
-- `Habit`: 工作习惯
+### Retrieval
 
-### 项目级（项目隔离）
-- `Decision`: 项目决策
-- `Episode`: 开发情景
-- `File`: 文件说明
-- `Architecture`: 架构设计
+- `memory_recall`: Comprehensive retrieval
+- `memory_search_by_type`: Search by type
+- `memory_get_episode_detail`: Get episode detail
 
-## 存储位置
+### Statistics
 
-- 用户级: `~/.claude-memory/` (Windows: `%APPDATA%/claude-memory/`)
-- 项目级: `{project}/.claude/memory/`
+- `memory_stats`: Get statistics
 
-## 示例使用
+## Entity Types
+
+### User-level (cross-project shared)
+
+- `Preference`: User preferences
+- `Concept`: General concepts
+- `Habit`: Work habits
+
+### Project-level (project isolated)
+
+- `Decision`: Project decisions
+- `Episode`: Development scenes
+- `File`: File descriptions
+- `Architecture`: Architecture designs
+
+## Storage Locations
+
+- User-level: `~/.claude-memory/` (Windows: `%APPDATA%/claude-memory/`)
+- Project-level: `{project}/.claude/memory/`
+
+## Example Usage
 
 ```
-# 开始新任务
-Claude 调用: memory_start_episode("登录功能开发", ["auth"])
+# Start a new task
+Claude call: memory_start_episode("Login Function Development", ["auth"])
 
-# 记录决策
-Claude 调用: memory_add_entity("Decision", "采用 JWT + Redis 方案", "考虑分布式部署")
+# Record a decision
+Claude call: memory_add_entity("Decision", "Adopt JWT + Redis solution", "Consider distributed deployment")
 
-# 检索历史
-Claude 调用: memory_recall("登录方案")
+# Retrieve history
+Claude call: memory_recall("Login scheme")
 
-# 关闭任务
-Claude 调用: memory_close_episode("完成了 JWT 登录功能的开发")
+# Close task
+Claude call: memory_close_episode("Completed JWT login function development")
 ```
+
+## License
+
+MIT License - see LICENSE file for details.
