@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.chenxiaofie/memory-mcp",
+  "description": "情景+实体记忆 MCP 服务，为 Claude Code 提供持久化记忆能力",
+  "repository": {
+    "url": "https://github.com/chenxiaofie/memory-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "memory-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "项目根目录路径",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "CLAUDE_PROJECT_ROOT"
+        }
+      ]
+    }
+  ]
+}
