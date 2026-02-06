@@ -65,3 +65,24 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Sensitive files
+*.token
+*.secret
+*.key
+*.pem
+*.crt
+*.cer
+*.pfx
+*.p12
+.env.local
+.env.development
+.env.production
+
+# PyPI
+*.pypirc
+
+# MCP publisher
+mcp-publisher.exe
+.mcpregistry_github_token
+.mcpregistry_registry_token
