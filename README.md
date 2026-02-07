@@ -16,175 +16,197 @@ A scenario + entity memory MCP service that provides persistent memory capabilit
 
 ### Windows One-click Installation
 
-Run the `install.bat` file in the project root directory:
+Run `install.bat` file in the project root directory:
 
 ```bash
-# Double-click to run or execute from command line
 install.bat
 ```
 
 ### Mac/Linux One-click Installation
 
-Run the `install.sh` file in the project root directory:
-
 ```bash
-# Execute from command line
 chmod +x install.sh
 ./install.sh
 ```
 
-### Manual Installation
-
-```bash
-cd .claude/memory-mcp
-
-# Create virtual environment
-python -m venv venv310
-
-# Activate virtual environment
-# Windows:
-venv310\Scripts\activate
-# Mac/Linux:
-source venv310/bin/activate
-
-# Install dependencies
-pip install -e .
-```
+> The installation script will automatically create a Python 3.10 virtual environment (`venv310`) and install dependencies.
 
 ## Configure Claude Code
 
-### 1. MCP Service Configuration
+### Important
 
-#### Method 1: Add using command line (recommended)
+This package depends on chromadb which uses Pydantic V1, **not compatible with Python 3.14+**.
+
+**Required: Use local source code with `venv310` virtual environment (Python 3.10).**
+
+### Add MCP Server
 
 ```bash
-claude mcp add memory-mcp -- python -m src.server
+# Windows:
+claude mcp add memory-mcp -s user -- "C:\path\to\memory-mcp\venv310\Scripts\python.exe" -m src.server
+
+# Mac/Linux:
+claude mcp add memory-mcp -s user -- /path/to/memory-mcp/venv310/bin/python -m src.server
 ```
 
-#### Method 2: Manual configuration in settings.json
+#### Manual Configuration File
 
-Edit `~/.claude/settings.json` (global configuration):
+Edit `~/.claude/settings.json` and add:
 
 ```json
 {
   "mcpServers": {
     "memory-mcp": {
-      "command": "/path/to/your/venv/bin/python",
+      "command": "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe",
       "args": ["-m", "src.server"],
-      "cwd": "/path/to/your/memory-mcp",
-      "env": {
-        "CLAUDE_PROJECT_ROOT": "/path/to/your/project"
-      }
+      "cwd": "C:\\path\\to\\memory-mcp"
     }
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/your/venv/bin/python",
-            "args": ["/path/to/your/memory-mcp/session_start.py"],
-            "env": {}
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/your/venv/bin/python",
-            "args": ["/path/to/your/memory-mcp/auto_save.py"],
-            "env": {}
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/your/venv/bin/python",
-            "args": ["/path/to/your/memory-mcp/save_response.py"],
-            "env": {}
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/your/venv/bin/python",
-            "args": ["/path/to/your/memory-mcp/session_end.py"],
-            "env": {}
-          }
-        ]
-      }
-    ]
   }
 }
 ```
 
-### 2. Hooks Functionality
+### Configure Hooks (Optional)
 
-The project provides 4 automated hooks to implement complete session lifecycle management:
+> **Important:** Hooks are **only available with local source code installation**.
 
-| Hook Name          | File                     | Function Description                                                                 |
-|-------------------|--------------------------|-------------------------------------------------------------------------------------|
-| SessionStart      | `session_start.py`       | Automatically creates a scenario when a session starts and begins monitoring the terminal lifecycle |
-| UserPromptSubmit  | `auto_save.py`           | Automatically saves user messages to the memory system when they submit a prompt    |
-| Stop              | `save_response.py`       | Saves assistant responses to the memory system when the session stops               |
-| SessionEnd        | `session_end.py`         | Sends a close signal to the monitoring process when the session ends, which is responsible for closing the scenario and generating a summary |
+Hooks enable automatic message saving. Once configured, conversations will be saved without manual memory tool calls.
 
-### 3. Verify Configuration
+Add to following `hooks` configuration to `~/.claude/settings.json`:
+
+**Mac/Linux:**
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/venv310/bin/python",
+        "args": ["/path/to/memory-mcp/session_start.py"]
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/venv310/bin/python",
+        "args": ["/path/to/memory-mcp/auto_save.py"]
+      }]
+    }],
+    "Stop": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/venv310/bin/python",
+        "args": ["/path/to/memory-mcp/save_response.py"]
+      }]
+    }],
+    "SessionEnd": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/venv310/bin/python",
+        "args": ["/path/to/memory-mcp/session_end.py"]
+      }]
+    }]
+  }
+}
+```
+
+**Windows (requires cmd wrapper):**
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "cmd",
+        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\session_start.py"]
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "cmd",
+        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\auto_save.py"]
+      }]
+    }],
+    "Stop": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "cmd",
+        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\save_response.py"]
+      }]
+    }],
+    "SessionEnd": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "cmd",
+        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\session_end.py"]
+      }]
+    }]
+  }
+}
+```
+
+**Hooks Description:**
+
+| Hook Name       | Purpose                            |
+|----------------|------------------------------------|
+| SessionStart   | Create new episode when session starts |
+| UserPromptSubmit | Save user-submitted messages       |
+| Stop           | Save assistant responses             |
+| SessionEnd     | Close episode and generate summary   |
+
+### Verify Configuration
 
 ```bash
-# Check MCP server status
 claude mcp list
+```
 
-# Expected output
-Checking MCP server health...
-playwright: npx @playwright/mcp@latest - ✓ Connected
-memory-mcp: /path/to/your/venv/bin/python -m src.server - ✓ Connected
+Expected output should show `memory-m-mcp: ... - ✓ Connected`
+
+## Usage
+
+### Automatic Mode (With Hooks)
+
+After configuring hooks, conversations are automatically saved without manual operation.
+
+### Manual Mode
+
+Manually call memory tools:
+
+```
+# Start a new task
+memory_start("Login Function Development", ["auth"])
+
+# Record a decision
+memory_add_entity("Decision", "Adopt JWT + Redis solution", "Consider distributed deployment")
+
+# Retrieve history
+memory_recall("Login scheme")
+
+# Close task
+memory_close_episode("Completed JWT login function development")
 ```
 
 ## Tools List
 
-### Message Cache
-
-- `memory_cache_message`: Cache messages
-
-### Episode Management
-
 - `memory_start_episode`: Start a new episode
 - `memory_close_episode`: Close an episode
 - `memory_get_current_episode`: Get current episode
-
-### Entity Management
-
 - `memory_add_entity`: Add entity
 - `memory_confirm_entity`: Confirm candidate entity
 - `memory_reject_candidate`: Reject candidate
 - `memory_deprecate_entity`: Deprecate entity
 - `memory_get_pending`: Get pending entities
-
-### Retrieval
-
 - `memory_recall`: Comprehensive retrieval
 - `memory_search_by_type`: Search by type
 - `memory_get_episode_detail`: Get episode detail
-
-### Statistics
-
 - `memory_stats`: Get statistics
 
 ## Entity Types
@@ -198,30 +220,14 @@ memory-mcp: /path/to/your/venv/bin/python -m src.server - ✓ Connected
 ### Project-level (project isolated)
 
 - `Decision`: Project decisions
-- `Episode`: Development scenes
+- `Episode`: Development episodes
 - `File`: File descriptions
 - `Architecture`: Architecture designs
 
 ## Storage Locations
 
-- User-level: `~/.claude-memory/` (Windows: `%APPDATA%/claude-memory/`)
-- Project-level: `{project}/.claude/memory/`
-
-## Example Usage
-
-```
-# Start a new task
-Claude call: memory_start_episode("Login Function Development", ["auth"])
-
-# Record a decision
-Claude call: memory_add_entity("Decision", "Adopt JWT + Redis solution", "Consider distributed deployment")
-
-# Retrieve history
-Claude call: memory_recall("Login scheme")
-
-# Close task
-Claude call: memory_close_episode("Completed JWT login function development")
-```
+- **User-level**: `~/.claude-memory/` (Windows: `%APPDATA%/claude-memory/`)
+- **Project-level**: `{project-root}/.claude/memory/`
 
 ## License
 

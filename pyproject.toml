@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "memory-mcp"
-version = "0.1.0"
+name = "chenxiaofie-memory-mcp"
+version = "0.1.1"
 description = "情景+实体记忆 MCP 服务"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=1.0.0",
-    "chromadb>=0.4.22",
+    "chromadb>=0.5.0",
     "sentence-transformers>=2.3.0",
     "pydantic>=2.0.0",
 ]
