@@ -12,6 +12,7 @@
 |:----|:-----|:------:|:--------|:-----|
 | 001 | 1.0 | 陈佳俊 | 创建全文 | 2026-01-26 |
 | 002 | 1.1 | 陈佳俊 | 新增日志管理功能、编码器进程隔离优化 | 2026-01-27 |
+| 003 | 1.2 | 陈佳俊 | 编码器改用 subprocess.Popen 独立工作进程方案 | 2026-02-08 |
 
 ---
 
@@ -437,11 +438,11 @@ subprocess.Popen(args, start_new_session=True)
 
 ### 编码器加载优化
 
-向量编码器（SentenceTransformer）首次加载需要 10-30 秒。为避免阻塞服务，采用**独立进程**加载策略：
+向量编码器（SentenceTransformer）首次加载需要 10-30 秒。为避免阻塞服务，采用 **subprocess.Popen 独立工作进程** 策略：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    编码器加载优化流程（v2 - 进程隔离）            │
+│              编码器加载优化流程（v3 - Popen 工作进程）            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  服务启动                                                        │
@@ -451,22 +452,34 @@ subprocess.Popen(args, start_new_session=True)
 │     │   └── 不需要编码器的操作立即可用 ✓                         │
 │     │   └── 不受 GIL 阻塞，响应迅速                              │
 │     │                                                           │
-│     └── 子进程（ProcessPoolExecutor）                           │
-│         └── 独立 Python 进程，拥有独立的 GIL                     │
-│         └── 加载 SentenceTransformer 模型                       │
-│         └── 加载完成后，语义搜索可用 ✓                           │
-│         └── 所有编码操作都在子进程中执行                         │
+│     └── 后台线程调用 _start_worker()                             │
+│         └── subprocess.Popen 启动 _encoder_worker.py            │
+│         └── 显式创建 stdin/stdout PIPE（不继承 MCP stdio）       │
+│         └── 工作进程加载 SentenceTransformer 模型                │
+│         └── 发送 {"status": "ready"} 表示就绪                    │
+│         └── 之后通过 JSON 行协议处理编码请求                     │
 │                                                                 │
-│  关键优化：主进程和子进程拥有独立的 GIL，互不阻塞                 │
+│  通信协议（JSON Lines over stdin/stdout PIPE）：                  │
+│     请求: {"text": "..."} 或 {"texts": [...]}                   │
+│     响应: {"vector": [...]} 或 {"vectors": [[...], ...]}        │
+│     退出: {"cmd": "quit"}                                        │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**为什么使用独立进程？**
+**方案演进历史：**
 
-Python 的 GIL（全局解释器锁）导致多线程无法实现真正的并行：
-- 旧方案：后台线程加载模型时，会长时间占用 GIL，阻塞主线程
-- 新方案：使用 `ProcessPoolExecutor` 在独立进程中加载，完全不影响主进程
+| 版本 | 方案 | 问题 |
+|------|------|------|
+| v1 | 后台线程加载模型 | GIL 阻塞：模型加载时主线程无法响应 MCP 请求 |
+| v2 | `ProcessPoolExecutor(spawn)` | MCP stdio 管道继承：子进程在 Windows MCP 环境下卡死在 multiprocessing bootstrap 阶段 |
+| **v3** | **`subprocess.Popen` + 独立工作脚本** | **当前方案，稳定运行** |
+
+**v3 方案优势：**
+- 显式创建新的 stdin/stdout PIPE，完全不继承 MCP 的 stdio 管道
+- 工作进程是普通 Python 脚本（`_encoder_worker.py`），无 multiprocessing 框架开销
+- 通过简单的 JSON Lines 协议通信，可靠且易于调试
+- Windows 使用 `CREATE_NO_WINDOW` 标志，不创建额外窗口
 
 **操作分类**：
 
@@ -508,7 +521,8 @@ Python 的 GIL（全局解释器锁）导致多线程无法实现真正的并行
 │   │   └── manager.py              # 记忆管理器核心
 │   └── vector/
 │       ├── __init__.py
-│       └── store.py                # 向量存储封装
+│       ├── store.py                # 向量存储封装
+│       └── _encoder_worker.py      # 编码器工作进程脚本
 ├── session_start.py                # SessionStart hook（创建情景 + 启动监控）
 ├── session_monitor.py              # 终端生命周期监控进程
 ├── auto_save.py                    # UserPromptSubmit hook
@@ -552,6 +566,11 @@ Python 的 GIL（全局解释器锁）导致多线程无法实现真正的并行
   - [x] `memory_stats` 返回编码器状态信息
   - [x] 新增 `memory_encoder_status` 工具
   - [x] warmup 过程 GIL 友好优化
+- [x] **编码器进程方案升级 v3**（2026-02-08）
+  - [x] 从 `ProcessPoolExecutor(spawn)` 迁移到 `subprocess.Popen` 独立工作进程
+  - [x] 新增 `_encoder_worker.py` 工作进程脚本
+  - [x] 解决 MCP stdio 管道继承导致子进程卡死的问题（Windows）
+  - [x] JSON Lines 协议通信，稳定可靠
 
 - [x] **日志管理功能**（2026-01-27）
   - [x] `memory_clear_cache` 清空消息缓存
@@ -597,30 +616,36 @@ A: 这是给 `SessionEnd` Hook 写入关闭信号文件的时间。当父进程�
 
 ### Q: 为什么编码器未加载时，按类型查询也会卡住？
 
-A: 这是早期设计的问题，已在 2026-01-27 通过**进程隔离**彻底修复。
+A: 这是早期设计的问题，经历了三个版本的优化：
 
 **问题根源**：
-- 早期设计使用后台线程加载编码器
-- Python 的 GIL（全局解释器锁）导致加载模型时会阻塞主线程
-- 即使操作本身不需要编码器，主线程也无法响应请求
+- v1（线程方案）：后台线程加载编码器，Python GIL 导致加载时阻塞主线程
+- v2（ProcessPoolExecutor）：使用 `ProcessPoolExecutor(spawn)` 在独立进程中加载，解决了 GIL 问题，但在 MCP stdio 环境下子进程卡死
+- v3（subprocess.Popen）：当前方案，彻底解决
 
-**优化方案（v2 - 进程隔离）**：
-1. 使用 `ProcessPoolExecutor` 在独立子进程中加载和运行编码器
-2. 子进程拥有独立的 GIL，与主进程互不干扰
-3. 主进程的 asyncio 事件循环始终保持响应
-4. 不需要编码器的操作（按 ID/类型查询）立即可用
+**v2 的 MCP 管道继承问题（Windows）**：
+- MCP 服务器通过 stdin/stdout 与 Claude Code 通信
+- `ProcessPoolExecutor(spawn)` 创建的子进程会继承父进程的管道句柄
+- 子进程在 multiprocessing bootstrap 阶段尝试从继承的管道读取数据时卡死
+- 从终端直接运行时没有此问题，只有在 MCP 环境下才会触发
 
-**实现细节**：
+**v3 方案（当前）**：
 ```python
-# 使用 spawn 方式创建进程池，避免继承主进程状态
-ctx = multiprocessing.get_context('spawn')
-_process_pool = ProcessPoolExecutor(max_workers=1, mp_context=ctx)
+# 使用 subprocess.Popen 显式创建新的 PIPE，不继承 MCP stdio
+_worker_proc = subprocess.Popen(
+    [sys.executable, worker_script, MODEL_NAME],
+    stdin=subprocess.PIPE,   # 新管道，非继承
+    stdout=subprocess.PIPE,  # 新管道，非继承
+    stderr=subprocess.PIPE,
+    creationflags=subprocess.CREATE_NO_WINDOW,  # Windows
+)
 ```
 
 **优化后效果**：
 - 服务启动后，所有不需要编码器的操作**立即**可用（无延迟）
-- 编码器在子进程中加载（10-30s），完全不影响主进程
+- 编码器在独立工作进程中加载（10-30s），完全不影响主进程
 - 语义搜索在编码器就绪前会返回明确错误提示（而非卡住）
+- 在 MCP stdio 环境下稳定运行（Windows/Mac/Linux）
 
 ### Q: 为什么需要 `memory_list_episodes` 工具？
 

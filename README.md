@@ -207,7 +207,12 @@ memory_close_episode("Completed JWT login function development")
 - `memory_recall`: Comprehensive retrieval
 - `memory_search_by_type`: Search by type
 - `memory_get_episode_detail`: Get episode detail
+- `memory_list_episodes`: List all episodes by time
 - `memory_stats`: Get statistics
+- `memory_encoder_status`: Check encoder status
+- `memory_cache_message`: Manually cache a message
+- `memory_clear_cache`: Clear message cache
+- `memory_cleanup_messages`: Clean up old messages
 
 ## Entity Types
 

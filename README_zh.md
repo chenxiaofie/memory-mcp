@@ -207,7 +207,12 @@ memory_close_episode("完成登录功能开发")
 - `memory_recall`: 综合检索
 - `memory_search_by_type`: 按类型检索
 - `memory_get_episode_detail`: 获取情景详情
+- `memory_list_episodes`: 按时间列出所有情景
 - `memory_stats`: 获取统计信息
+- `memory_encoder_status`: 查询编码器状态
+- `memory_cache_message`: 手动缓存消息
+- `memory_clear_cache`: 清空消息缓存
+- `memory_cleanup_messages`: 清理旧消息
 
 ## 实体类型
 
