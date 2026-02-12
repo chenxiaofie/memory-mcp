@@ -384,32 +384,52 @@ def main():
 
         log(f"最终 project_path: {project_path}, session_id: {session_id}")
 
-        # 初始化记忆管理器
-        from src.memory import MemoryManager
-        manager = MemoryManager(project_path=project_path)
-        log(f"MemoryManager 初始化完成，存储路径: {manager.project_path}")
+        # 直接操作 JSON 文件，不导入 MemoryManager/chromadb（避免重型依赖拖慢 hook）
+        memory_dir = Path(project_path) / ".claude" / "memory"
+        memory_dir.mkdir(parents=True, exist_ok=True)
+        episode_file = memory_dir / "active_episode.json"
 
         # 检查是否已有活跃情景
-        current = manager.get_current_episode()
-        log(f"当前活跃情景: {current}")
+        current_episode = None
+        if episode_file.exists():
+            try:
+                with open(episode_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    current_episode = data.get("episode")
+            except (json.JSONDecodeError, IOError):
+                pass
 
-        if current:
-            # 已有活跃情景，不重复创建
-            log("已有活跃情景，跳过创建")
+        log(f"当前活跃情景: {current_episode}")
 
-            # 但仍需确保监控进程在运行
-            parent_pid = get_claude_or_terminal_pid()
-            if parent_pid > 0:
-                existing_monitor_pid = get_existing_monitor_pid(project_path)
-                if existing_monitor_pid > 0 and is_monitor_running(existing_monitor_pid):
-                    log(f"监控进程已在运行 (PID: {existing_monitor_pid})")
-                else:
-                    log("监控进程不存在或已退出，启动新的监控进程")
-                    monitor_pid = start_monitor_process(parent_pid, project_path)
-                    if monitor_pid > 0:
-                        save_monitor_pid(project_path, monitor_pid)
+        if current_episode:
+            # 检查是否过期（超过 30 分钟未活动）
+            stale = False
+            try:
+                created_at = datetime.fromisoformat(current_episode["created_at"])
+                stale_minutes = (datetime.now() - created_at).total_seconds() / 60
+                if stale_minutes >= 30:
+                    stale = True
+                    log(f"活跃情景已过期（闲置 {int(stale_minutes)} 分钟），清除并创建新情景")
+            except Exception:
+                pass
 
-            sys.exit(0)
+            if not stale:
+                # 已有活跃情景且未过期，不重复创建
+                log("已有活跃情景，跳过创建")
+
+                # 但仍需确保监控进程在运行
+                parent_pid = get_claude_or_terminal_pid()
+                if parent_pid > 0:
+                    existing_monitor_pid = get_existing_monitor_pid(project_path)
+                    if existing_monitor_pid > 0 and is_monitor_running(existing_monitor_pid):
+                        log(f"监控进程已在运行 (PID: {existing_monitor_pid})")
+                    else:
+                        log("监控进程不存在或已退出，启动新的监控进程")
+                        monitor_pid = start_monitor_process(parent_pid, project_path)
+                        if monitor_pid > 0:
+                            save_monitor_pid(project_path, monitor_pid)
+
+                sys.exit(0)
 
         # 生成情景标题
         project_name = os.path.basename(project_path)
@@ -417,11 +437,18 @@ def main():
         title = f"{project_name} 开发会话 {timestamp}"
         log(f"准备创建情景: {title}")
 
-        # 自动创建情景
-        episode = manager.start_episode(
-            title=title,
-            tags=["auto", "session", project_name]
-        )
+        # 直接创建情景（纯 JSON 操作，不需要向量编码）
+        from uuid import uuid4
+        episode = {
+            "id": f"ep_{uuid4().hex[:8]}",
+            "title": title,
+            "tags": ["auto", "session", project_name],
+            "status": "active",
+            "created_at": datetime.now().isoformat(),
+            "entity_ids": []
+        }
+        with open(episode_file, 'w', encoding='utf-8') as f:
+            json.dump({"episode": episode, "messages": []}, f, ensure_ascii=False, indent=2)
         log(f"情景创建成功: {episode}")
 
         # 启动监控进程（监听终端生命周期）

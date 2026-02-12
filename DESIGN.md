@@ -13,6 +13,7 @@
 | 001 | 1.0 | 陈佳俊 | 创建全文 | 2026-01-26 |
 | 002 | 1.1 | 陈佳俊 | 新增日志管理功能、编码器进程隔离优化 | 2026-01-27 |
 | 003 | 1.2 | 陈佳俊 | 编码器改用 subprocess.Popen 独立工作进程方案 | 2026-02-08 |
+| 004 | 1.3 | 陈佳俊 | SessionStart Hook 轻量化，移除 MemoryManager/chromadb 依赖 | 2026-02-12 |
 
 ---
 
@@ -102,11 +103,12 @@ Memory MCP 通过 4 个 Claude Code Hooks 实现自动化：
 │                    Memory MCP 完整流程                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ① SessionStart Hook（会话开始）                                 │
-│     └── 创建情景 (Episode)                                      │
+│  ① SessionStart Hook（会话开始）【轻量化，不导入 chromadb】       │
+│     └── 直接读写 active_episode.json 创建情景                   │
 │         • 生成 episode_id                                       │
 │         • 标题: "{项目名} 开发会话 {时间}"                       │
 │         • 状态: active                                          │
+│         • 过期检测: 超过 30 分钟的旧情景直接覆盖                 │
 │                                                                 │
 │  ② UserPromptSubmit Hook（用户发消息时）                         │
 │     └── 保存用户消息（去代码块，限制 2000 字符）                 │
@@ -130,14 +132,32 @@ Memory MCP 通过 4 个 Claude Code Hooks 实现自动化：
 
 | Hook | 脚本 | 功能 |
 |------|------|------|
-| `SessionStart` | `session_start.py` | 创建情景 + 启动监控进程 |
+| `SessionStart` | `session_start.py` | 创建情景 + 启动监控进程（轻量化，纯 JSON 操作） |
 | `UserPromptSubmit` | `auto_save.py` | 保存消息 + 实体检测 + 检索注入 |
 | `Stop` | `save_response.py` | 保存回复 |
 | `SessionEnd` | `session_end.py` | 写入关闭信号 + 移除项目信任状态 |
 
-### 3.3 监控进程统一关闭情景
+### 3.3 Hook 轻量化原则
 
-**问题**：Hook 脚本是独立的 Python 进程，每次运行都需要重新加载向量编码器（10-30秒）。这导致 `SessionEnd` Hook 在编码器未就绪时无法关闭情景。
+**问题**：Hook 脚本是独立的 Python 进程，如果导入 MemoryManager 会连带导入 chromadb 等重型依赖（`import chromadb` + `VectorStore.__init__` 耗时 10-30 秒），导致 Claude Code 启动卡死。
+
+**原则**：Hook 脚本应尽量避免导入重型依赖，只做最轻量的操作：
+
+| Hook | 轻量化策略 | 耗时 |
+|------|-----------|------|
+| `SessionStart` | 直接读写 `active_episode.json`，不导入 MemoryManager/chromadb | ~50ms |
+| `UserPromptSubmit` | 导入 MemoryManager（需要检索功能），有 8 秒超时保护 | ~1-2s |
+| `Stop` | 导入 MemoryManager（需要保存消息） | ~1s |
+| `SessionEnd` | 只写信号文件，不导入 MemoryManager | ~50ms |
+
+**SessionStart 轻量化实现**（v1.3）：
+- 直接操作 `active_episode.json` 文件，完全绕过 MemoryManager
+- 过期情景检测：比较 `created_at` 时间戳，超过 30 分钟直接覆盖创建新情景
+- 编码器预热由 monitor 进程负责，不在 hook 中进行
+
+### 3.4 监控进程统一关闭情景
+
+**问题**：编码器加载需要 10-30 秒。`SessionEnd` Hook 在编码器未就绪时无法关闭情景。
 
 **解决方案**：由监控进程统一负责关闭情景。监控进程是长生命周期进程，启动时预热编码器，有足够时间加载。
 
@@ -578,6 +598,12 @@ subprocess.Popen(args, start_new_session=True)
   - [x] `memory_cleanup_messages` 定时清除旧消息
   - [x] `memory_list_episodes` 按时间列出所有情景（解决语义搜索遗漏问题）
 
+- [x] **SessionStart Hook 轻量化**（2026-02-12）
+  - [x] 移除 MemoryManager/chromadb 依赖，直接操作 JSON 文件
+  - [x] 解决 `import chromadb` + `VectorStore.__init__` 导致 hook 超时卡死的问题
+  - [x] 轻量过期情景检测（纯时间戳比较，不依赖向量操作）
+  - [x] hook 耗时从 18s+ 降至 ~50ms
+
 ### 🔄 待优化
 
 - [ ] 更智能的摘要生成（LLM 辅助）
@@ -676,3 +702,18 @@ A: 这是一个 workaround。Claude Code 在已信任的项目目录下执行 Ho
 2. **定时清除**：`memory_cleanup_messages(days=7)` - 保留最近 N 天的消息，适合定期维护
 
 **建议**：可以在 Hook 中定期调用 `memory_cleanup_messages` 自动清理旧消息。
+
+### Q: 为什么 SessionStart Hook 不使用 MemoryManager？
+
+A: `MemoryManager` 的导入链会触发 `import chromadb` 和 `VectorStore.__init__`（创建 ChromaDB PersistentClient），这个过程在 Windows 上需要 10-30 秒。而 Claude Code 的 Hook 有超时限制，超时会导致启动报错甚至卡死。
+
+SessionStart Hook 实际只需要：
+1. 读 `active_episode.json` 检查是否有活跃情景
+2. 写 `active_episode.json` 创建新情景
+3. 启动监控进程
+
+这些操作都不需要向量编码或 ChromaDB，所以直接操作 JSON 文件即可。编码器预热由 monitor 进程在后台完成。
+
+### Q: 过期情景在 SessionStart 中直接覆盖，不会丢失数据吗？
+
+A: 正常情况下，过期情景应该已经被前一个 monitor 进程关闭并归档到向量库。如果 monitor 进程也异常退出导致情景未关闭，这是极端边缘情况——丢失一条情景摘要比每次启动卡死 18 秒更可接受。消息内容仍保留在 `message_cache.jsonl` 中，不会丢失。
