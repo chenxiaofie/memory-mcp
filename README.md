@@ -1,5 +1,9 @@
 # Memory MCP Service
 
+[![PyPI version](https://img.shields.io/pypi/v/chenxiaofie-memory-mcp)](https://pypi.org/project/chenxiaofie-memory-mcp/)
+[![Python](https://img.shields.io/pypi/pyversions/chenxiaofie-memory-mcp)](https://pypi.org/project/chenxiaofie-memory-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 [English](README.md) | [中文](README_zh.md)
 
 A scenario + entity memory MCP service that provides persistent memory capabilities for Claude Code.
