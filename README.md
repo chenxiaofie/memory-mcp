@@ -155,12 +155,14 @@ Add to following `hooks` configuration to `~/.claude/settings.json`:
 
 **Hooks Description:**
 
-| Hook Name       | Purpose                            |
-|----------------|------------------------------------|
-| SessionStart   | Create new episode when session starts |
-| UserPromptSubmit | Save user-submitted messages       |
-| Stop           | Save assistant responses             |
-| SessionEnd     | Close episode and remove project trust |
+| Hook Name       | Purpose                            | Weight |
+|----------------|------------------------------------|--------|
+| SessionStart   | Create new episode (lightweight JSON ops, no chromadb) | ~50ms |
+| UserPromptSubmit | Save user messages + entity detection + memory retrieval | ~1-2s |
+| Stop           | Save assistant responses             | ~1s |
+| SessionEnd     | Write close signal + remove project trust (no chromadb) | ~50ms |
+
+> **Note:** SessionStart and SessionEnd hooks are lightweight — they do not import MemoryManager/chromadb to avoid the heavy initialization cost (10-30s). Episode closing and archiving is handled by the background monitor process.
 
 ### Verify Configuration
 

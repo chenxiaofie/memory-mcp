@@ -155,12 +155,14 @@ Hooks 可实现自动消息保存，配置后会话无需手动调用记忆工�
 
 **Hooks 说明：**
 
-| Hook 名称         | 作用                      |
-|-----------------|---------------------------|
-| SessionStart     | 会话开始时创建新的情景     |
-| UserPromptSubmit | 保存用户提交的消息          |
-| Stop            | 保存助手的回复              |
-| SessionEnd       | 关闭情景并移除项目信任状态    |
+| Hook 名称         | 作用                      | 耗时 |
+|-----------------|---------------------------|------|
+| SessionStart     | 创建情景（轻量 JSON 操作，不导入 chromadb） | ~50ms |
+| UserPromptSubmit | 保存消息 + 实体检测 + 记忆检索注入 | ~1-2s |
+| Stop            | 保存助手的回复              | ~1s |
+| SessionEnd       | 写入关闭信号 + 移除项目信任状态（不导入 chromadb） | ~50ms |
+
+> **说明：** SessionStart 和 SessionEnd Hook 采用轻量化设计，不导入 MemoryManager/chromadb，避免重型依赖初始化（10-30秒）导致 hook 超时。情景的关闭归档由后台监控进程负责。
 
 ### 验证配置
 
