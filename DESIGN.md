@@ -533,10 +533,17 @@ subprocess.Popen(args, start_new_session=True)
 ## 8. 文件结构
 
 ```
-~/.claude-memory/                    # 用户级（AppData/Roaming/claude-memory）
+memory-mcp/                          # 项目根目录
 ├── src/
 │   ├── __init__.py
 │   ├── server.py                   # MCP 服务入口
+│   ├── hooks/                      # Hook 脚本包（pip 安装后提供 CLI 入口点）
+│   │   ├── __init__.py
+│   │   ├── session_start.py        # SessionStart hook（创建情景 + 启动监控）
+│   │   ├── auto_save.py            # UserPromptSubmit hook
+│   │   ├── save_response.py        # Stop hook
+│   │   ├── session_end.py          # SessionEnd hook
+│   │   └── session_monitor.py      # 终端生命周期监控进程
 │   ├── memory/
 │   │   ├── __init__.py
 │   │   └── manager.py              # 记忆管理器核心
@@ -544,18 +551,16 @@ subprocess.Popen(args, start_new_session=True)
 │       ├── __init__.py
 │       ├── store.py                # 向量存储封装
 │       └── _encoder_worker.py      # 编码器工作进程脚本
-├── session_start.py                # SessionStart hook（创建情景 + 启动监控）
-├── session_monitor.py              # 终端生命周期监控进程
-├── auto_save.py                    # UserPromptSubmit hook
-├── save_response.py                # Stop hook
-├── session_end.py                  # SessionEnd hook
-├── run.py                          # MCP 启动脚本
+├── session_start.py                # 向后兼容包装器
+├── auto_save.py                    # 向后兼容包装器
+├── save_response.py                # 向后兼容包装器
+├── session_end.py                  # 向后兼容包装器
+├── session_monitor.py              # 向后兼容包装器
 ├── pyproject.toml
 ├── requirements.txt
 ├── README.md
 ├── DESIGN.md                       # 本文件
-├── hook_debug.log                  # Hook 调试日志
-└── user_db/                        # 用户级向量数据库
+└── install.bat / install.sh        # 一键安装脚本
 
 {project}/.claude/memory/            # 项目级
 ├── project_db/                     # 项目级向量数据库
