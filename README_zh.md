@@ -6,227 +6,95 @@
 
 [English](README.md) | [中文](README_zh.md)
 
-情景+实体记忆 MCP 服务，为 Claude Code 提供持久化记忆能力。
+Claude Code 的持久化记忆 MCP 服务。自动保存对话内容，跨会话检索相关历史。
 
-## 特性
+**解决什么问题：** 每次新会话，Claude 都会"失忆"——不记得之前的决策、偏好和讨论。这个服务让 Claude 自动记住上下文，下次对话时自动回忆相关历史。
 
-- **情景记忆 (Episodes)**: 按任务/功能划分的对话场景
-- **实体记忆 (Entities)**: 结构化的知识单元（决策、概念、偏好等）
-- **双层存储**: 用户级（跨项目共享）+ 项目级（项目隔离）
-- **实时缓存**: 消息实时存储，防止丢失
-- **语义检索**: 基于向量的语义搜索
+## 快速开始
 
-## 安装
-
-### Windows 一键安装
-
-双击运行项目根目录的 `install.bat`：
+### 1. 安装
 
 ```bash
-install.bat
+pip install chenxiaofie-memory-mcp
 ```
 
-### Mac/Linux 一键安装
+> 需要 Python 3.10 - 3.13（chromadb 不兼容 Python 3.14+）。
+
+### 2. 添加 MCP 服务到 Claude Code
 
 ```bash
-chmod +x install.sh
-./install.sh
+claude mcp add memory-mcp -s user -- memory-mcp
 ```
 
-> 安装脚本会自动创建 Python 3.10 虚拟环境（`venv310`）并安装依赖。
+### 3. 配置 Hooks（推荐）
 
-## 配置 Claude Code
+Hooks 实现**全自动**消息保存。不配置的话需要手动调用记忆工具。
 
-### 重要提示
+在 `~/.claude/settings.json` 中添加：
 
-本包依赖 chromadb，其使用的 Pydantic V1 **不支持 Python 3.14+**。
-
-**必须使用：本地源码 + `venv310` 虚拟环境（Python 3.10）。**
-
-### 添加 MCP 服务
-
-```bash
-# Windows:
-claude mcp add memory-mcp -s user -- "C:\path\to\memory-mcp\venv310\Scripts\python.exe" -m src.server
-
-# Mac/Linux:
-claude mcp add memory-mcp -s user -- /path/to/memory-mcp/venv310/bin/python -m src.server
-```
-
-#### 手动编辑配置文件
-
-编辑 `~/.claude/settings.json`，添加：
-
-```json
-{
-  "mcpServers": {
-    "memory-mcp": {
-      "command": "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe",
-      "args": ["-m", "src.server"],
-      "cwd": "C:\\path\\to\\memory-mcp"
-    }
-  }
-}
-```
-
-### 配置 Hooks（可选）
-
-Hooks 可实现自动消息保存，配置后会话无需手动调用记忆工具。
-
-在 `~/.claude/settings.json` 中添加 `hooks` 配置：
-
-**pip 安装方式（推荐，全平台通用）：**
 ```json
 {
   "hooks": {
     "SessionStart": [{
       "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-session-start"
-      }]
+      "hooks": [{ "type": "command", "command": "memory-mcp-session-start" }]
     }],
     "UserPromptSubmit": [{
       "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-auto-save"
-      }]
+      "hooks": [{ "type": "command", "command": "memory-mcp-auto-save" }]
     }],
     "Stop": [{
       "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-save-response"
-      }]
+      "hooks": [{ "type": "command", "command": "memory-mcp-save-response" }]
     }],
     "SessionEnd": [{
       "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-session-end"
-      }]
+      "hooks": [{ "type": "command", "command": "memory-mcp-session-end" }]
     }]
   }
 }
 ```
 
-<details>
-<summary>本地源码安装方式（备用）</summary>
-
-**Mac/Linux:**
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/session_start.py"]
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/auto_save.py"]
-      }]
-    }],
-    "Stop": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/save_response.py"]
-      }]
-    }],
-    "SessionEnd": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/session_end.py"]
-      }]
-    }]
-  }
-}
-```
-
-**Windows（需要 cmd 包装器）：**
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\session_start.py"]
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\auto_save.py"]
-      }]
-    }],
-    "Stop": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\save_response.py"]
-      }]
-    }],
-    "SessionEnd": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\session_end.py"]
-      }]
-    }]
-  }
-}
-```
-</details>
-
-**Hooks 说明：**
-
-| Hook 名称         | 作用                      | 耗时 |
-|-----------------|---------------------------|------|
-| SessionStart     | 创建情景（轻量 JSON 操作，不导入 chromadb） | ~50ms |
-| UserPromptSubmit | 保存消息 + 实体检测 + 记忆检索注入 | ~1-2s |
-| Stop            | 保存助手的回复              | ~1s |
-| SessionEnd       | 写入关闭信号 + 移除项目信任状态（不导入 chromadb） | ~50ms |
-
-> **说明：** SessionStart 和 SessionEnd Hook 采用轻量化设计，不导入 MemoryManager/chromadb，避免重型依赖初始化（10-30秒）导致 hook 超时。情景的关闭归档由后台监控进程负责。
-
-### 验证配置
+### 4. 验证
 
 ```bash
 claude mcp list
 ```
 
-预期输出应显示 `memory-mcp: ... - ✓ Connected`
+看到 `memory-mcp: ... - ✓ Connected` 就说明配置成功了。
+
+搞定！开始新的 Claude Code 会话，对话会自动保存和回忆。
+
+## 工作原理
+
+```
+会话开始 ──► 创建情景 ──► 启动监控进程（后台）
+                              │
+用户消息 ──► 保存消息 ──► 检索相关记忆 ──► 注入上下文
+                              │
+Claude 回复 ──► 保存回复      │
+                              │
+会话结束 ──► 关闭信号 ──► 归档情景 + 生成摘要
+```
+
+- **情景 (Episodes)**：每次对话会话是一个"情景"，结束时自动生成摘要
+- **实体 (Entities)**：从对话中提取的结构化知识（决策、偏好、概念等）
+- **双层存储**：用户级（跨项目共享）+ 项目级（项目隔离）
+- **语义检索**：基于向量的语义搜索，自动找到相关的历史上下文
 
 ## 使用方式
 
-### 自动模式（启用 Hooks 后）
+### 自动模式（配置 Hooks 后）
 
-配置 Hooks 后，对话会自动保存，无需手动操作。
+配置好 Hooks 后一切自动运行。Claude 会自动看到过去会话中的相关历史作为上下文。
 
 ### 手动模式
 
-手动调用记忆工具：
+也可以在 Claude Code 中直接调用记忆工具：
 
 ```
 # 开始新情景
-memory_start("登录功能开发", ["auth"])
+memory_start_episode("登录功能开发", ["auth"])
 
 # 记录决策
 memory_add_entity("Decision", "采用 JWT + Redis 方案", "考虑分布式部署")
@@ -238,46 +106,79 @@ memory_recall("登录方案")
 memory_close_episode("完成登录功能开发")
 ```
 
+## Hooks 说明
+
+| Hook | 作用 | 耗时 |
+|------|-----|------|
+| SessionStart | 创建新情景 | ~50ms |
+| UserPromptSubmit | 保存用户消息 + 检索相关记忆 | ~1-2s |
+| Stop | 保存 Claude 回复 | ~1s |
+| SessionEnd | 发送情景关闭信号 | ~50ms |
+
 ## 工具列表
 
-- `memory_start_episode`: 开始新情景
-- `memory_close_episode`: 关闭情景
-- `memory_get_current_episode`: 获取当前情景
-- `memory_add_entity`: 添加实体
-- `memory_confirm_entity`: 确认候选实体
-- `memory_reject_candidate`: 拒绝候选
-- `memory_deprecate_entity`: 废弃实体
-- `memory_get_pending`: 获取待确认实体
-- `memory_recall`: 综合检索
-- `memory_search_by_type`: 按类型检索
-- `memory_get_episode_detail`: 获取情景详情
-- `memory_list_episodes`: 按时间列出所有情景
-- `memory_stats`: 获取统计信息
-- `memory_encoder_status`: 查询编码器状态
-- `memory_cache_message`: 手动缓存消息
-- `memory_clear_cache`: 清空消息缓存
-- `memory_cleanup_messages`: 清理旧消息
+| 工具 | 说明 |
+|------|-----|
+| `memory_start_episode` | 开始新情景 |
+| `memory_close_episode` | 关闭并归档当前情景 |
+| `memory_get_current_episode` | 获取当前活跃情景 |
+| `memory_add_entity` | 添加知识实体 |
+| `memory_confirm_entity` | 确认检测到的实体候选 |
+| `memory_reject_candidate` | 拒绝误检测的候选 |
+| `memory_deprecate_entity` | 标记实体为过时 |
+| `memory_get_pending` | 查看待确认的实体候选 |
+| `memory_recall` | 语义搜索情景和实体 |
+| `memory_search_by_type` | 按类型搜索实体 |
+| `memory_get_episode_detail` | 获取情景详情 |
+| `memory_list_episodes` | 按时间列出所有情景 |
+| `memory_stats` | 获取系统统计 |
+| `memory_encoder_status` | 查询向量编码器状态 |
+| `memory_cache_message` | 手动缓存消息 |
+| `memory_clear_cache` | 清空消息缓存 |
+| `memory_cleanup_messages` | 清理旧的缓存消息 |
 
 ## 实体类型
 
-### 用户级（跨项目共享）
-
-- `Preference`: 用户偏好
-- `Concept`: 通用概念
-- `Habit`: 工作习惯
-
-### 项目级（项目隔离）
-
-- `Decision`: 项目决策
-- `Episode`: 开发情景
-- `File`: 文件说明
-- `Architecture`: 架构设计
+| 类型 | 级别 | 说明 |
+|------|------|-----|
+| `Decision` | 项目级 | 本项目的技术决策 |
+| `Architecture` | 项目级 | 架构设计 |
+| `File` | 项目级 | 重要文件说明 |
+| `Preference` | 用户级 | 个人偏好（跨项目共享） |
+| `Concept` | 用户级 | 通用概念 |
+| `Habit` | 用户级 | 工作习惯 |
 
 ## 存储位置
 
-- **用户级**: `~/.claude-memory/` (Windows: `%APPDATA%/claude-memory/`)
-- **项目级**: `{项目根目录}/.claude/memory/`
+- **用户级**：`~/.claude-memory/`
+- **项目级**：`{项目根目录}/.claude/memory/`
+
+<details>
+<summary>备选：从源码安装</summary>
+
+如果需要从源码运行（如开发调试）：
+
+```bash
+git clone https://github.com/chenxiaofie/memory-mcp.git
+cd memory-mcp
+# Windows:
+install.bat
+# Mac/Linux:
+chmod +x install.sh && ./install.sh
+```
+
+然后用 venv 的 Python 配置 MCP 服务：
+
+```bash
+# Windows:
+claude mcp add memory-mcp -s user -- "C:\path\to\memory-mcp\venv310\Scripts\python.exe" -m src.server
+
+# Mac/Linux:
+claude mcp add memory-mcp -s user -- /path/to/memory-mcp/venv310/bin/python -m src.server
+```
+
+</details>
 
 ## 许可证
 
-MIT License
+MIT License - 详见 [LICENSE](LICENSE) 文件。

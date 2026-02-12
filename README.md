@@ -8,44 +8,168 @@
 
 [English](README.md) | [中文](README_zh.md)
 
-A scenario + entity memory MCP service that provides persistent memory capabilities for Claude Code.
+A persistent memory MCP service for Claude Code. Automatically saves conversations and retrieves relevant history across sessions.
 
-## Features
+**What it does:** Every time you chat with Claude Code, your conversation context (decisions, preferences, key discussions) is saved and automatically recalled in future sessions — so Claude always has the background it needs.
 
-- **Episodes**: Dialogue scenes divided by task/function
-- **Entities**: Structured knowledge units (decisions, concepts, preferences, etc.)
-- **Dual-layer storage**: User-level (cross-project) + Project-level (project isolated)
-- **Real-time cache**: Messages are stored in real-time to prevent loss
-- **Semantic retrieval**: Vector-based semantic search
+## Quick Start
 
-## Installation
-
-### Windows One-click Installation
-
-Run `install.bat` file in the project root directory:
+### 1. Install
 
 ```bash
+pip install chenxiaofie-memory-mcp
+```
+
+> Requires Python 3.10 - 3.13 (chromadb is not compatible with Python 3.14+).
+
+### 2. Add MCP Server to Claude Code
+
+```bash
+claude mcp add memory-mcp -s user -- memory-mcp
+```
+
+### 3. Configure Hooks (Recommended)
+
+Hooks enable **fully automatic** message saving. Without hooks, you need to manually call memory tools.
+
+Add the following to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": ".*",
+      "hooks": [{ "type": "command", "command": "memory-mcp-session-start" }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": ".*",
+      "hooks": [{ "type": "command", "command": "memory-mcp-auto-save" }]
+    }],
+    "Stop": [{
+      "matcher": ".*",
+      "hooks": [{ "type": "command", "command": "memory-mcp-save-response" }]
+    }],
+    "SessionEnd": [{
+      "matcher": ".*",
+      "hooks": [{ "type": "command", "command": "memory-mcp-session-end" }]
+    }]
+  }
+}
+```
+
+### 4. Verify
+
+```bash
+claude mcp list
+```
+
+You should see `memory-mcp: ... - ✓ Connected`.
+
+That's it! Start a new Claude Code session and your conversations will be automatically saved and recalled.
+
+## How It Works
+
+```
+Session Start ──► Create Episode ──► Monitor Process (background)
+                                          │
+User Message  ──► Save Message ──► Recall Related Memories ──► Inject Context
+                                          │
+Claude Reply  ──► Save Response           │
+                                          │
+Session End   ──► Close Signal ──► Archive Episode + Generate Summary
+```
+
+- **Episodes**: Each conversation session is an "episode" with auto-generated summaries
+- **Entities**: Key knowledge extracted from conversations (decisions, preferences, concepts)
+- **Dual-layer storage**: User-level (shared across projects) + Project-level (isolated per project)
+- **Semantic search**: Vector-based retrieval finds relevant past context
+
+## Usage
+
+### Automatic Mode (With Hooks)
+
+Once hooks are configured, everything is automatic. Claude will see relevant history from past sessions as context.
+
+### Manual Mode
+
+You can also call memory tools directly in Claude Code:
+
+```
+# Start a new episode
+memory_start_episode("Login Feature Development", ["auth"])
+
+# Record a decision
+memory_add_entity("Decision", "Use JWT + Redis", "For distributed deployment")
+
+# Search history
+memory_recall("login implementation")
+
+# Close episode
+memory_close_episode("Completed JWT login feature")
+```
+
+## Hooks Reference
+
+| Hook | What it does | Timing |
+|------|-------------|--------|
+| SessionStart | Creates a new episode | ~50ms |
+| UserPromptSubmit | Saves user message + retrieves related memories | ~1-2s |
+| Stop | Saves assistant response | ~1s |
+| SessionEnd | Signals episode closure | ~50ms |
+
+## Tools Reference
+
+| Tool | Description |
+|------|-------------|
+| `memory_start_episode` | Start a new episode |
+| `memory_close_episode` | Close and archive current episode |
+| `memory_get_current_episode` | Get current active episode |
+| `memory_add_entity` | Add a knowledge entity |
+| `memory_confirm_entity` | Confirm a detected entity candidate |
+| `memory_reject_candidate` | Reject a false detection |
+| `memory_deprecate_entity` | Mark an entity as outdated |
+| `memory_get_pending` | List pending entity candidates |
+| `memory_recall` | Semantic search across episodes and entities |
+| `memory_search_by_type` | Search entities by type |
+| `memory_get_episode_detail` | Get full episode details |
+| `memory_list_episodes` | List all episodes chronologically |
+| `memory_stats` | Get system statistics |
+| `memory_encoder_status` | Check vector encoder status |
+| `memory_cache_message` | Manually cache a message |
+| `memory_clear_cache` | Clear message cache |
+| `memory_cleanup_messages` | Clean up old cached messages |
+
+## Entity Types
+
+| Type | Level | Description |
+|------|-------|-------------|
+| `Decision` | Project | Technical decisions for this project |
+| `Architecture` | Project | Architecture designs |
+| `File` | Project | Important file descriptions |
+| `Preference` | User | Personal preferences (shared across projects) |
+| `Concept` | User | General concepts |
+| `Habit` | User | Work habits |
+
+## Storage Locations
+
+- **User-level**: `~/.claude-memory/`
+- **Project-level**: `{project-root}/.claude/memory/`
+
+<details>
+<summary>Alternative: Install from source</summary>
+
+If you need to run from source (e.g., for development):
+
+```bash
+git clone https://github.com/chenxiaofie/memory-mcp.git
+cd memory-mcp
+# Windows:
 install.bat
+# Mac/Linux:
+chmod +x install.sh && ./install.sh
 ```
 
-### Mac/Linux One-click Installation
-
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-> The installation script will automatically create a Python 3.10 virtual environment (`venv310`) and install dependencies.
-
-## Configure Claude Code
-
-### Important
-
-This package depends on chromadb which uses Pydantic V1, **not compatible with Python 3.14+**.
-
-**Required: Use local source code with `venv310` virtual environment (Python 3.10).**
-
-### Add MCP Server
+Then configure MCP server with the venv Python:
 
 ```bash
 # Windows:
@@ -55,231 +179,8 @@ claude mcp add memory-mcp -s user -- "C:\path\to\memory-mcp\venv310\Scripts\pyth
 claude mcp add memory-mcp -s user -- /path/to/memory-mcp/venv310/bin/python -m src.server
 ```
 
-#### Manual Configuration File
-
-Edit `~/.claude/settings.json` and add:
-
-```json
-{
-  "mcpServers": {
-    "memory-mcp": {
-      "command": "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe",
-      "args": ["-m", "src.server"],
-      "cwd": "C:\\path\\to\\memory-mcp"
-    }
-  }
-}
-```
-
-### Configure Hooks (Optional)
-
-Hooks enable automatic message saving. Once configured, conversations will be saved without manual memory tool calls.
-
-Add the following `hooks` configuration to `~/.claude/settings.json`:
-
-**pip install (recommended, works on all platforms):**
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-session-start"
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-auto-save"
-      }]
-    }],
-    "Stop": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-save-response"
-      }]
-    }],
-    "SessionEnd": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "memory-mcp-session-end"
-      }]
-    }]
-  }
-}
-```
-
-<details>
-<summary>Local source code installation (alternative)</summary>
-
-**Mac/Linux:**
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/session_start.py"]
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/auto_save.py"]
-      }]
-    }],
-    "Stop": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/save_response.py"]
-      }]
-    }],
-    "SessionEnd": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "/path/to/venv310/bin/python",
-        "args": ["/path/to/memory-mcp/session_end.py"]
-      }]
-    }]
-  }
-}
-```
-
-**Windows (requires cmd wrapper):**
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\session_start.py"]
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\auto_save.py"]
-      }]
-    }],
-    "Stop": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\save_response.py"]
-      }]
-    }],
-    "SessionEnd": [{
-      "matcher": ".*",
-      "hooks": [{
-        "type": "command",
-        "command": "cmd",
-        "args": ["/c", "C:\\path\\to\\memory-mcp\\venv310\\Scripts\\python.exe", "C:\\path\\to\\memory-mcp\\session_end.py"]
-      }]
-    }]
-  }
-}
-```
 </details>
-
-**Hooks Description:**
-
-| Hook Name       | Purpose                            | Weight |
-|----------------|------------------------------------|--------|
-| SessionStart   | Create new episode (lightweight JSON ops, no chromadb) | ~50ms |
-| UserPromptSubmit | Save user messages + entity detection + memory retrieval | ~1-2s |
-| Stop           | Save assistant responses             | ~1s |
-| SessionEnd     | Write close signal + remove project trust (no chromadb) | ~50ms |
-
-> **Note:** SessionStart and SessionEnd hooks are lightweight — they do not import MemoryManager/chromadb to avoid the heavy initialization cost (10-30s). Episode closing and archiving is handled by the background monitor process.
-
-### Verify Configuration
-
-```bash
-claude mcp list
-```
-
-Expected output should show `memory-m-mcp: ... - ✓ Connected`
-
-## Usage
-
-### Automatic Mode (With Hooks)
-
-After configuring hooks, conversations are automatically saved without manual operation.
-
-### Manual Mode
-
-Manually call memory tools:
-
-```
-# Start a new task
-memory_start("Login Function Development", ["auth"])
-
-# Record a decision
-memory_add_entity("Decision", "Adopt JWT + Redis solution", "Consider distributed deployment")
-
-# Retrieve history
-memory_recall("Login scheme")
-
-# Close task
-memory_close_episode("Completed JWT login function development")
-```
-
-## Tools List
-
-- `memory_start_episode`: Start a new episode
-- `memory_close_episode`: Close an episode
-- `memory_get_current_episode`: Get current episode
-- `memory_add_entity`: Add entity
-- `memory_confirm_entity`: Confirm candidate entity
-- `memory_reject_candidate`: Reject candidate
-- `memory_deprecate_entity`: Deprecate entity
-- `memory_get_pending`: Get pending entities
-- `memory_recall`: Comprehensive retrieval
-- `memory_search_by_type`: Search by type
-- `memory_get_episode_detail`: Get episode detail
-- `memory_list_episodes`: List all episodes by time
-- `memory_stats`: Get statistics
-- `memory_encoder_status`: Check encoder status
-- `memory_cache_message`: Manually cache a message
-- `memory_clear_cache`: Clear message cache
-- `memory_cleanup_messages`: Clean up old messages
-
-## Entity Types
-
-### User-level (cross-project shared)
-
-- `Preference`: User preferences
-- `Concept`: General concepts
-- `Habit`: Work habits
-
-### Project-level (project isolated)
-
-- `Decision`: Project decisions
-- `Episode`: Development episodes
-- `File`: File descriptions
-- `Architecture`: Architecture designs
-
-## Storage Locations
-
-- **User-level**: `~/.claude-memory/` (Windows: `%APPDATA%/claude-memory/`)
-- **Project-level**: `{project-root}/.claude/memory/`
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
