@@ -71,11 +71,48 @@ claude mcp add memory-mcp -s user -- /path/to/memory-mcp/venv310/bin/python -m s
 
 ### 配置 Hooks（可选）
 
-> **重要：** Hooks **仅在使用本地源码安装时可用**。
-
 Hooks 可实现自动消息保存，配置后会话无需手动调用记忆工具。
 
 在 `~/.claude/settings.json` 中添加 `hooks` 配置：
+
+**pip 安装方式（推荐，全平台通用）：**
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-session-start"
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-auto-save"
+      }]
+    }],
+    "Stop": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-save-response"
+      }]
+    }],
+    "SessionEnd": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-session-end"
+      }]
+    }]
+  }
+}
+```
+
+<details>
+<summary>本地源码安装方式（备用）</summary>
 
 **Mac/Linux:**
 ```json
@@ -156,6 +193,7 @@ Hooks 可实现自动消息保存，配置后会话无需手动调用记忆工�
   }
 }
 ```
+</details>
 
 **Hooks 说明：**
 

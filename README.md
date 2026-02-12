@@ -73,11 +73,48 @@ Edit `~/.claude/settings.json` and add:
 
 ### Configure Hooks (Optional)
 
-> **Important:** Hooks are **only available with local source code installation**.
-
 Hooks enable automatic message saving. Once configured, conversations will be saved without manual memory tool calls.
 
-Add to following `hooks` configuration to `~/.claude/settings.json`:
+Add the following `hooks` configuration to `~/.claude/settings.json`:
+
+**pip install (recommended, works on all platforms):**
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-session-start"
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-auto-save"
+      }]
+    }],
+    "Stop": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-save-response"
+      }]
+    }],
+    "SessionEnd": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "memory-mcp-session-end"
+      }]
+    }]
+  }
+}
+```
+
+<details>
+<summary>Local source code installation (alternative)</summary>
 
 **Mac/Linux:**
 ```json
@@ -158,6 +195,7 @@ Add to following `hooks` configuration to `~/.claude/settings.json`:
   }
 }
 ```
+</details>
 
 **Hooks Description:**
 

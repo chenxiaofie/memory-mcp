@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chenxiaofie-memory-mcp"
-version = "0.1.3"
+version = "0.2.0"
 description = "情景+实体记忆 MCP 服务"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,6 +17,11 @@ dependencies = [
 
 [project.scripts]
 memory-mcp = "src.server:run"
+memory-mcp-session-start = "src.hooks.session_start:main"
+memory-mcp-auto-save = "src.hooks.auto_save:main"
+memory-mcp-save-response = "src.hooks.save_response:main"
+memory-mcp-session-end = "src.hooks.session_end:main"
+memory-mcp-monitor = "src.hooks.session_monitor:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
