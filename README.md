@@ -160,7 +160,7 @@ Add to following `hooks` configuration to `~/.claude/settings.json`:
 | SessionStart   | Create new episode when session starts |
 | UserPromptSubmit | Save user-submitted messages       |
 | Stop           | Save assistant responses             |
-| SessionEnd     | Close episode and generate summary   |
+| SessionEnd     | Close episode and remove project trust |
 
 ### Verify Configuration
 

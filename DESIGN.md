@@ -121,6 +121,7 @@ Memory MCP 通过 4 个 Claude Code Hooks 实现自动化：
 │     └── 写入关闭信号文件（不直接关闭情景）                      │
 │     └── 监控进程检测到信号后执行关闭                            │
 │     └── 归档后可被 memory_recall 检索                           │
+│     └── 移除当前项目的 hasTrustDialogAccepted 信任状态          │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -132,7 +133,7 @@ Memory MCP 通过 4 个 Claude Code Hooks 实现自动化：
 | `SessionStart` | `session_start.py` | 创建情景 + 启动监控进程 |
 | `UserPromptSubmit` | `auto_save.py` | 保存消息 + 实体检测 + 检索注入 |
 | `Stop` | `save_response.py` | 保存回复 |
-| `SessionEnd` | `session_end.py` | 写入关闭信号（由监控进程执行关闭） |
+| `SessionEnd` | `session_end.py` | 写入关闭信号 + 移除项目信任状态 |
 
 ### 3.3 监控进程统一关闭情景
 
@@ -660,6 +661,15 @@ A: `memory_search_by_type(entity_type="Episode")` 使用语义搜索，返回的
 ### Q: 为什么需要日志清理功能？
 
 A: `message_cache.jsonl` 会随着使用不断增长。虽然消息内容已做清理（去代码块、限制长度），但长期使用后文件仍可能很大。
+
+### Q: 为什么 SessionEnd 要移除项目的 hasTrustDialogAccepted？
+
+A: 这是一个 workaround。Claude Code 在已信任的项目目录下执行 Hooks 时可能会卡住。通过在会话结束时移除当前项目的 `hasTrustDialogAccepted`，下次启动时会重新弹出信任确认对话框，避免 Hooks 执行卡住的问题。
+
+**实现细节**：
+- 只移除 `~/.claude.json` 中 `projects[当前项目路径].hasTrustDialogAccepted` 字段
+- 不影响其他项目的信任状态
+- 路径格式转换：`os.getcwd()` 返回反斜杠（Windows），`.claude.json` 中使用正斜杠
 
 **清理策略**：
 1. **手动清空**：`memory_clear_cache(confirm=true)` - 适合需要完全重置的场景

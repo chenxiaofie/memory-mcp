@@ -160,7 +160,7 @@ Hooks 可实现自动消息保存，配置后会话无需手动调用记忆工�
 | SessionStart     | 会话开始时创建新的情景     |
 | UserPromptSubmit | 保存用户提交的消息          |
 | Stop            | 保存助手的回复              |
-| SessionEnd       | 关闭情景并生成摘要          |
+| SessionEnd       | 关闭情景并移除项目信任状态    |
 
 ### 验证配置
 

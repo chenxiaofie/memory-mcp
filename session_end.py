@@ -75,10 +75,10 @@ def episode_still_active(project_path: str) -> bool:
         return False
 
 
-def remove_company_trust():
+def remove_project_trust(project_path: str):
     """
-    移除 Company 目录的信任状态
-    这是一个 workaround，因为 Claude Code 在 trusted 目录下执行 hooks 时会卡住
+    移除当前项目的 hasTrustDialogAccepted 状态
+    这样下次打开该项目时会重新弹出信任确认对话框
     """
     try:
         claude_json = Path.home() / ".claude.json"
@@ -89,24 +89,34 @@ def remove_company_trust():
             data = json.load(f)
 
         projects = data.get('projects', {})
-        keys_to_remove = [k for k in projects.keys() if 'Company' in k]
 
-        if not keys_to_remove:
+        # .claude.json 中 key 使用正斜杠格式，os.getcwd() 返回反斜杠
+        project_key = project_path.replace('\\', '/')
+
+        if project_key not in projects:
+            log(f"项目 {project_key} 不在 .claude.json 中，跳过")
             return
 
-        for k in keys_to_remove:
-            del projects[k]
+        project_data = projects[project_key]
+        if 'hasTrustDialogAccepted' not in project_data:
+            log(f"项目 {project_key} 没有 hasTrustDialogAccepted，跳过")
+            return
+
+        del project_data['hasTrustDialogAccepted']
 
         with open(claude_json, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        log(f"已移除 Company 目录的信任状态: {keys_to_remove}")
+        log(f"已移除项目 {project_key} 的 hasTrustDialogAccepted")
     except Exception as e:
         log(f"移除信任状态失败: {e}")
 
 
 def main():
     log("=== SessionEnd Hook 开始执行 ===")
+
+    # 提前获取项目路径，确保即使后续出异常也能用于移除信任状态
+    project_path = os.getcwd()
 
     try:
         # 从 stdin 读取 hook 输入
@@ -118,31 +128,29 @@ def main():
 
         # 获取项目路径 - 优先使用 os.getcwd()，因为 hook 传入的 cwd 在 Windows 上可能有中文编码问题
         hook_cwd = hook_input.get("cwd", "")
-        actual_cwd = os.getcwd()
         log(f"hook cwd: {hook_cwd}")
-        log(f"os.getcwd(): {actual_cwd}")
+        log(f"os.getcwd(): {project_path}")
 
         # 优先使用 os.getcwd()，它能正确处理中文路径
-        project_path = actual_cwd or hook_cwd or os.environ.get("CLAUDE_PROJECT_DIR", "")
+        project_path = project_path or hook_cwd or os.environ.get("CLAUDE_PROJECT_DIR", "")
         log(f"最终 project_path: {project_path}")
 
         # 检查是否有活跃情景
         if not episode_still_active(project_path):
             log("没有活跃情景，无需发送关闭信号")
-            sys.exit(0)
-
-        # 写入关闭信号，由监控进程处理
-        reason = hook_input.get("reason", "session_end")
-        write_close_signal(project_path, reason=reason)
-        log(f"关闭信号已发送，原因: {reason}")
+        else:
+            # 写入关闭信号，由监控进程处理
+            reason = hook_input.get("reason", "session_end")
+            write_close_signal(project_path, reason=reason)
+            log(f"关闭信号已发送，原因: {reason}")
 
     except Exception as e:
         log(f"错误: {type(e).__name__}: {e}")
         import traceback
         log(traceback.format_exc())
 
-    # Workaround: 移除 Company 目录的信任状态，避免下次启动时 hooks 卡住
-    remove_company_trust()
+    # 移除当前项目的信任状态，下次启动时重新确认
+    remove_project_trust(project_path)
 
     log("=== SessionEnd Hook 执行结束 ===\n")
     sys.exit(0)
