@@ -19,8 +19,8 @@ if sys.platform == 'win32':
     sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', errors='replace')
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-from src.memory import MemoryManager
-from src.vector import is_encoder_ready
+from memory_mcp.memory import MemoryManager
+from memory_mcp.vector import is_encoder_ready
 
 
 def timeout_handler():

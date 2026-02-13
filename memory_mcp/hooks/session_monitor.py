@@ -108,7 +108,7 @@ def warmup_encoder():
     """预热向量编码器"""
     log("开始预热向量编码器...")
     try:
-        from src.vector.store import start_encoder_warmup, is_encoder_ready
+        from memory_mcp.vector.store import start_encoder_warmup, is_encoder_ready
         start_encoder_warmup()
         log("编码器预热任务已启动（后台加载中）")
     except Exception as e:
@@ -119,7 +119,7 @@ def shutdown_encoder():
     """关闭向量编码器进程池"""
     log("关闭向量编码器进程池...")
     try:
-        from src.vector.store import shutdown_encoder as _shutdown
+        from memory_mcp.vector.store import shutdown_encoder as _shutdown
         _shutdown()
         log("编码器进程池已关闭")
     except Exception as e:
@@ -129,7 +129,7 @@ def shutdown_encoder():
 def wait_for_encoder(timeout: float = 60.0) -> bool:
     """等待编码器就绪"""
     try:
-        from src.vector.store import is_encoder_ready
+        from memory_mcp.vector.store import is_encoder_ready
         start_time = time.time()
         while not is_encoder_ready():
             if time.time() - start_time > timeout:
@@ -187,7 +187,7 @@ def close_episode(project_path: str, reason: str = "terminal_closed"):
         if not wait_for_encoder(timeout=60.0):
             log("警告：编码器未就绪，尝试继续关闭...")
 
-        from src.memory import MemoryManager
+        from memory_mcp.memory import MemoryManager
         manager = MemoryManager(project_path=project_path)
 
         current = manager.get_current_episode()

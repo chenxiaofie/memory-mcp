@@ -15,7 +15,7 @@ if sys.platform == 'win32':
     sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', errors='replace')
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-from src.memory import MemoryManager
+from memory_mcp.memory import MemoryManager
 
 
 def extract_last_assistant_message(transcript_path: str) -> str:

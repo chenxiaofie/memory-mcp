@@ -16,13 +16,13 @@ dependencies = [
 ]
 
 [project.scripts]
-memory-mcp = "src.server:run"
-memory-mcp-session-start = "src.hooks.session_start:main"
-memory-mcp-auto-save = "src.hooks.auto_save:main"
-memory-mcp-save-response = "src.hooks.save_response:main"
-memory-mcp-session-end = "src.hooks.session_end:main"
-memory-mcp-monitor = "src.hooks.session_monitor:main"
+memory-mcp = "memory_mcp.server:run"
+memory-mcp-session-start = "memory_mcp.hooks.session_start:main"
+memory-mcp-auto-save = "memory_mcp.hooks.auto_save:main"
+memory-mcp-save-response = "memory_mcp.hooks.save_response:main"
+memory-mcp-session-end = "memory_mcp.hooks.session_end:main"
+memory-mcp-monitor = "memory_mcp.hooks.session_monitor:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["memory_mcp*"]
