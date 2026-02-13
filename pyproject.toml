@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chenxiaofie-memory-mcp"
-version = "0.2.1"
+version = "0.2.2"
 description = "情景+实体记忆 MCP 服务"
 readme = "README.md"
 requires-python = ">=3.10"
