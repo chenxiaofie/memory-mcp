@@ -10,6 +10,8 @@ Claude Code 的持久化记忆 MCP 服务。自动保存对话内容，跨会话
 
 **解决什么问题：** 每次新会话，Claude 都会"失忆"——不记得之前的决策、偏好和讨论。这个服务让 Claude 自动记住上下文，下次对话时自动回忆相关历史。
 
+![记忆检索演示 - 跨会话回忆历史对话](image.png)
+
 ## 快速开始
 
 ### 前置条件
@@ -26,13 +28,21 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 > 需要 Python 3.10 - 3.13（chromadb 不兼容 Python 3.14+）。
 
-### 1. 添加 MCP 服务到 Claude Code
+### 1. 初始化（仅首次需要）
+
+下载向量模型（~400MB，只需运行一次）：
+
+```bash
+uvx --from chenxiaofie-memory-mcp memory-mcp-init
+```
+
+### 2. 添加 MCP 服务到 Claude Code
 
 ```bash
 claude mcp add memory-mcp -s user -- uvx --from chenxiaofie-memory-mcp memory-mcp
 ```
 
-### 2. 配置 Hooks（推荐）
+### 3. 配置 Hooks（推荐）
 
 Hooks 实现**全自动**消息保存。不配置的话需要手动调用记忆工具。
 
@@ -61,7 +71,7 @@ Hooks 实现**全自动**消息保存。不配置的话需要手动调用记忆�
 }
 ```
 
-### 3. 验证
+### 4. 验证
 
 ```bash
 claude mcp list

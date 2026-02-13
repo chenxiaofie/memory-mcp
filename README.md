@@ -11,7 +11,7 @@
 A persistent memory MCP service for Claude Code. Automatically saves conversations and retrieves relevant history across sessions.
 
 **What it does:** Every time you chat with Claude Code, your conversation context (decisions, preferences, key discussions) is saved and automatically recalled in future sessions — so Claude always has the background it needs.
-
+![Memory recall demo - retrieving past session history](image.png)
 ## Quick Start
 
 ### Prerequisites
@@ -28,13 +28,21 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 > Requires Python 3.10 - 3.13 (chromadb is not compatible with Python 3.14+).
 
-### 1. Add MCP Server to Claude Code
+### 1. Initialize (First Time Only)
+
+Download the vector model (~400MB, one-time):
+
+```bash
+uvx --from chenxiaofie-memory-mcp memory-mcp-init
+```
+
+### 2. Add MCP Server to Claude Code
 
 ```bash
 claude mcp add memory-mcp -s user -- uvx --from chenxiaofie-memory-mcp memory-mcp
 ```
 
-### 2. Configure Hooks (Recommended)
+### 3. Configure Hooks (Recommended)
 
 Hooks enable **fully automatic** message saving. Without hooks, you need to manually call memory tools.
 
@@ -63,7 +71,7 @@ Add the following to `~/.claude/settings.json`:
 }
 ```
 
-### 3. Verify
+### 4. Verify
 
 ```bash
 claude mcp list
