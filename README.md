@@ -14,21 +14,27 @@ A persistent memory MCP service for Claude Code. Automatically saves conversatio
 
 ## Quick Start
 
-### 1. Install
+### Prerequisites
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python package runner):
 
 ```bash
-pip install chenxiaofie-memory-mcp
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Mac/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 > Requires Python 3.10 - 3.13 (chromadb is not compatible with Python 3.14+).
 
-### 2. Add MCP Server to Claude Code
+### 1. Add MCP Server to Claude Code
 
 ```bash
-claude mcp add memory-mcp -s user -- memory-mcp
+claude mcp add memory-mcp -s user -- uvx --from chenxiaofie-memory-mcp memory-mcp
 ```
 
-### 3. Configure Hooks (Recommended)
+### 2. Configure Hooks (Recommended)
 
 Hooks enable **fully automatic** message saving. Without hooks, you need to manually call memory tools.
 
@@ -39,25 +45,25 @@ Add the following to `~/.claude/settings.json`:
   "hooks": {
     "SessionStart": [{
       "matcher": ".*",
-      "hooks": [{ "type": "command", "command": "memory-mcp-session-start" }]
+      "hooks": [{ "type": "command", "command": "uvx --from chenxiaofie-memory-mcp memory-mcp-session-start" }]
     }],
     "UserPromptSubmit": [{
       "matcher": ".*",
-      "hooks": [{ "type": "command", "command": "memory-mcp-auto-save" }]
+      "hooks": [{ "type": "command", "command": "uvx --from chenxiaofie-memory-mcp memory-mcp-auto-save" }]
     }],
     "Stop": [{
       "matcher": ".*",
-      "hooks": [{ "type": "command", "command": "memory-mcp-save-response" }]
+      "hooks": [{ "type": "command", "command": "uvx --from chenxiaofie-memory-mcp memory-mcp-save-response" }]
     }],
     "SessionEnd": [{
       "matcher": ".*",
-      "hooks": [{ "type": "command", "command": "memory-mcp-session-end" }]
+      "hooks": [{ "type": "command", "command": "uvx --from chenxiaofie-memory-mcp memory-mcp-session-end" }]
     }]
   }
 }
 ```
 
-### 4. Verify
+### 3. Verify
 
 ```bash
 claude mcp list
@@ -173,10 +179,10 @@ Then configure MCP server with the venv Python:
 
 ```bash
 # Windows:
-claude mcp add memory-mcp -s user -- "C:\path\to\memory-mcp\venv310\Scripts\python.exe" -m src.server
+claude mcp add memory-mcp -s user -- "C:\path\to\memory-mcp\venv310\Scripts\python.exe" -m memory_mcp.server
 
 # Mac/Linux:
-claude mcp add memory-mcp -s user -- /path/to/memory-mcp/venv310/bin/python -m src.server
+claude mcp add memory-mcp -s user -- /path/to/memory-mcp/venv310/bin/python -m memory_mcp.server
 ```
 
 </details>
