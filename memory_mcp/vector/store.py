@@ -114,17 +114,9 @@ def start_encoder_warmup():
 
 
 def encode_text(text: str, timeout: float = 60.0) -> List[float]:
-    """编码文本"""
-    # 等待编码器就绪
+    """编码文本，编码器未就绪时直接抛出异常"""
     if not _encoder_ready:
-        if not _encoder_loading:
-            _start_worker()
-
-        start = time.time()
-        while not _encoder_ready:
-            if time.time() - start > timeout:
-                raise RuntimeError("编码器预热超时")
-            time.sleep(0.5)
+        raise RuntimeError("向量编码器尚未就绪，请稍后再试。可运行 memory-mcp-init 预下载模型。")
 
     # 发送编码请求
     with _worker_lock:

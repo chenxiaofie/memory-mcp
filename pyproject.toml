@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 memory-mcp = "memory_mcp.server:run"
+memory-mcp-init = "memory_mcp.init:main"
 memory-mcp-session-start = "memory_mcp.hooks.session_start:main"
 memory-mcp-auto-save = "memory_mcp.hooks.auto_save:main"
 memory-mcp-save-response = "memory_mcp.hooks.save_response:main"
