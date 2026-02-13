@@ -49,9 +49,11 @@ hook_debug.log
 
 # Cache
 .cache/
-memory/
 user_db/
 project_db/
+
+# Memory MCP runtime data
+.claude/memory/
 
 # Temporary files
 *.tmp
